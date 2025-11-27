@@ -8,9 +8,7 @@ from typing import Sequence
 from .analyzers import available_analyzers
 from .artifacts import CsvArtifact, write_csv
 from .config import RunContext, detect_device, load_db_config
-from .uploader import UploadError, generate_exe_id, upload_coverage, upload_dtk
-
-DEFAULT_OUTPUT_DIR = pathlib.Path("output")
+from .uploader import UploadError, generate_exec_id, upload_coverage, upload_dtk
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -29,17 +27,19 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         "--upload-test",
         dest="upload_test",
         action="store_true",
-        help="Test upload with an exe_id prefixed by 9999",
+        help="Test upload with an exec_id prefixed by 9999",
     )
 
     return parser.parse_args(argv)
 
 
 def build_context(args: argparse.Namespace) -> RunContext:
+    exec_id = generate_exec_id(args.mode, test=args.upload_test)
     return RunContext(
-        exe_id=generate_exe_id(args.mode, test=args.upload_test),
+        exec_id=exec_id,
         device=detect_device(),
         mode=args.mode,
+        exec_dir=pathlib.Path(f"FITS-RESULTS-{exec_id}").resolve(),
     )
 
 
@@ -58,20 +58,19 @@ def handle_analyze(args: argparse.Namespace) -> int:
     context = build_context(args)
 
     artifacts = list(spec.build(context))
-    output_dir = DEFAULT_OUTPUT_DIR / args.mode
-    uploads = _write_artifacts(artifacts, output_dir)
+    uploads = _write_artifacts(artifacts, context.exec_dir)
 
     print(
-        f"Run {context.exe_id} ({context.mode}) wrote {len(artifacts)} CSV file(s) to {output_dir}"
+        f"Run {context.exec_id} ({context.mode}) wrote {len(artifacts)} CSV file(s) to {context.exec_dir}"
     )
 
     if args.upload or args.upload_test:
         try:
             db_config = load_db_config()
             if context.mode == "dtk":
-                inserted = upload_dtk(uploads, db_config, context.exe_id)
+                inserted = upload_dtk(uploads, db_config, context.exec_id, context.exec_dir)
             else:
-                inserted = upload_coverage(uploads, db_config, context.exe_id)
+                inserted = upload_coverage(uploads, db_config, context.exec_id, context.exec_dir)
         except (UploadError, FileNotFoundError, ValueError) as exc:
             print(f"Upload failed: {exc}")
             return 1

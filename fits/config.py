@@ -22,9 +22,10 @@ class DatabaseConfig:
 
 @dataclass
 class RunContext:
-    exe_id: str
+    exec_id: str
     device: str
     mode: str
+    exec_dir: pathlib.Path
 
 
 def detect_device() -> str:

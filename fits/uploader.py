@@ -18,11 +18,11 @@ class UploadError(RuntimeError):
 def _mode_task_id(mode: str) -> str:
     mapping = {"dtk": "01", "coverage": "02"}
     if mode not in mapping:
-        raise ValueError(f"Unknown mode '{mode}' for exe_id generation")
+        raise ValueError(f"Unknown mode '{mode}' for exec_id generation")
     return mapping[mode]
 
 
-def generate_exe_id(mode: str, *, test: bool = False) -> str:
+def generate_exec_id(mode: str, *, test: bool = False) -> str:
     """Build an 18-digit execution identifier for uploads."""
 
     now = datetime.now()
@@ -87,15 +87,15 @@ def upload_many(paths: Iterable[tuple[pathlib.Path, str]], config: DatabaseConfi
     return total
 
 
-def record_execution(exe_id: str, mode: str, config: DatabaseConfig) -> None:
+def record_execution(exec_id: str, mode: str, exec_dir: pathlib.Path, config: DatabaseConfig) -> None:
     """Insert a single execution row into the executions table."""
 
     connection, _ = _connect(config)
     try:
         with connection.cursor() as cursor:
             cursor.execute(
-                "INSERT INTO executions (exe_id, type) VALUES (%s, %s)",
-                (int(exe_id), mode),
+                "INSERT INTO executions (exec_id, type, exec_dir) VALUES (%s, %s, %s)",
+                (int(exec_id), mode, str(exec_dir)),
             )
         connection.commit()
     except Exception as exc:  # pragma: no cover - runtime dependent
@@ -113,17 +113,21 @@ def ensure_ready(paths: Iterable[tuple[pathlib.Path, str]]) -> None:
         raise UploadError(f"Artifacts not ready for upload: {joined}")
 
 
-def upload_dtk(paths: Iterable[tuple[pathlib.Path, str]], config: DatabaseConfig, exe_id: str) -> int:
+def upload_dtk(
+    paths: Iterable[tuple[pathlib.Path, str]], config: DatabaseConfig, exec_id: str, exec_dir: pathlib.Path
+) -> int:
     """Upload DTK artifacts and record the execution."""
 
     ensure_ready(paths)
-    record_execution(exe_id, "dtk", config)
+    record_execution(exec_id, "dtk", exec_dir, config)
     return upload_many(paths, config)
 
 
-def upload_coverage(paths: Iterable[tuple[pathlib.Path, str]], config: DatabaseConfig, exe_id: str) -> int:
+def upload_coverage(
+    paths: Iterable[tuple[pathlib.Path, str]], config: DatabaseConfig, exec_id: str, exec_dir: pathlib.Path
+) -> int:
     """Upload coverage artifacts and record the execution."""
 
     ensure_ready(paths)
-    record_execution(exe_id, "coverage", config)
+    record_execution(exec_id, "coverage", exec_dir, config)
     return upload_many(paths, config)

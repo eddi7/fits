@@ -9,11 +9,11 @@ from ..config import RunContext
 
 
 def _build_sample_rows(context: RunContext, count: int = 10):
-    rng = random.Random(context.exe_id)
+    rng = random.Random(context.exec_id)
     for _ in range(count):
         case = f"Path_Clip_{rng.randint(1, 9)}_L{rng.randint(1, 5)}_{rng.randint(100, 999)}"
         yield {
-            "exe_id": context.exe_id,
+            "exec_id": context.exec_id,
             "case": case,
             "result": f"{rng.random():.10f}",
         }
@@ -23,8 +23,8 @@ def build_dtk_artifacts(context: RunContext) -> Iterable[CsvArtifact]:
     """Construct a DTK CSV with execution id, case name, and result."""
 
     yield CsvArtifact(
-        name=f"fits_dtk_results_{context.exe_id}.csv",
-        headers=["exe_id", "case", "result"],
+        name=f"fitsdb-{context.exec_id}.dtk_results.csv",
+        headers=["exec_id", "case", "result"],
         rows=_build_sample_rows(context, count=12),
         table="dtk_results",
     )
