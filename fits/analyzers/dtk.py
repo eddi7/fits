@@ -1,22 +1,47 @@
 """DTK analysis artifact builders."""
 from __future__ import annotations
 
-import random
-from typing import Iterable
+import pathlib
+from typing import Iterable, Iterator
 
 from ..artifacts import CsvArtifact
 from ..config import RunContext
 
 
-def _build_sample_rows(context: RunContext, count: int = 10):
-    rng = random.Random(context.exec_id)
-    for _ in range(count):
-        case = f"Path_Clip_{rng.randint(1, 9)}_L{rng.randint(1, 5)}_{rng.randint(100, 999)}"
-        yield {
-            "exec_id": context.exec_id,
-            "case": case,
-            "result": f"{rng.random():.10f}",
-        }
+def _results_path(context: RunContext) -> pathlib.Path:
+    """Return the expected path for the DTK results text file."""
+
+    path = context.exec_dir / "result" / "output.txt"
+    if not path.exists():
+        raise FileNotFoundError(f"DTK results not found at {path}")
+    return path
+
+
+def _parse_result_line(line: str) -> tuple[str, str]:
+    """Parse a single DTK result line of the form ``<case>#<result>``."""
+
+    trimmed = line.strip()
+    if not trimmed:
+        raise ValueError("Encountered empty DTK result line")
+
+    if trimmed.count("#") != 1:
+        raise ValueError(f"Invalid DTK result format: {trimmed}")
+
+    case, result = trimmed.split("#", 1)
+    if not case or not result:
+        raise ValueError(f"Invalid DTK result format: {trimmed}")
+
+    return case, result
+
+
+def _read_results(context: RunContext) -> Iterator[dict[str, str]]:
+    """Yield parsed DTK results from the execution directory."""
+
+    path = _results_path(context)
+    with path.open() as results_file:
+        for line in results_file:
+            case, result = _parse_result_line(line)
+            yield {"exec_id": context.exec_id, "case": case, "result": result}
 
 
 def build_dtk_artifacts(context: RunContext) -> Iterable[CsvArtifact]:
@@ -25,6 +50,6 @@ def build_dtk_artifacts(context: RunContext) -> Iterable[CsvArtifact]:
     yield CsvArtifact(
         name=f"fitsdb-{context.exec_id}.dtk_results.csv",
         headers=["exec_id", "case", "result"],
-        rows=_build_sample_rows(context, count=12),
+        rows=_read_results(context),
         table="dtk_results",
     )
