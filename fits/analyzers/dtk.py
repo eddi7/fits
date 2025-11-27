@@ -39,12 +39,19 @@ def _parse_result_line(line: str) -> tuple[str, str]:
 
 
 def _read_results(context: RunContext) -> Iterator[dict[str, str]]:
-    """Yield parsed DTK results from the execution directory."""
+    """Yield parsed DTK results from the execution directory.
+
+    Case names ending with ``.jpg`` have the suffix removed so image artifacts
+    are normalized to their associated case names.
+    """
 
     path = _results_path(context)
     with path.open() as results_file:
         for line in results_file:
             case, result = _parse_result_line(line)
+            if case.lower().endswith(".jpg"):
+                case = case[:-4]
+
             yield {"exec_id": context.exec_id, "case": case, "result": result}
 
 
