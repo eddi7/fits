@@ -23,8 +23,8 @@ def build_dtk_artifacts(context: RunContext) -> Iterable[CsvArtifact]:
     """Construct a DTK CSV with execution id, case name, and result."""
 
     yield CsvArtifact(
-        name=f"dtk_summary_{context.exe_id}.csv",
+        name=f"fits_dtk_results_{context.exe_id}.csv",
         headers=["exe_id", "case", "result"],
         rows=_build_sample_rows(context, count=12),
-        table="dtk_summary",
+        table="dtk_results",
     )
