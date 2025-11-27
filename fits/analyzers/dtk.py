@@ -4,8 +4,11 @@ from __future__ import annotations
 import pathlib
 from typing import Iterable, Iterator
 
-from ..artifacts import CsvArtifact
+from ..artifacts import CsvArtifact, build_artifact_name
 from ..config import RunContext
+
+
+DTK_RESULTS_TABLE = "dtk_results"
 
 
 def _results_path(context: RunContext) -> pathlib.Path:
@@ -49,8 +52,8 @@ def build_dtk_artifacts(context: RunContext) -> Iterable[CsvArtifact]:
     """Construct a DTK CSV with execution id, case name, and result."""
 
     yield CsvArtifact(
-        name=f"fitsdb-{context.exec_id}.dtk_results.csv",
+        name=build_artifact_name(context.db_config.database, DTK_RESULTS_TABLE),
         headers=["exec_id", "case", "result"],
         rows=_read_results(context),
-        table="dtk_results",
+        table=DTK_RESULTS_TABLE,
     )

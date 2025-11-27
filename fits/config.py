@@ -8,7 +8,8 @@ from dataclasses import dataclass
 
 
 CONFIG_ENV_VAR = "FITS_DB_CONFIG"
-DEFAULT_CONFIG_PATH = pathlib.Path("config/db_config.ini")
+USER_CONFIG_PATH = pathlib.Path.home() / ".config" / "fits" / "db_config.ini"
+PACKAGE_CONFIG_PATH = pathlib.Path(__file__).resolve().parent.parent / "config" / "db_config.ini"
 
 
 @dataclass
@@ -26,6 +27,7 @@ class RunContext:
     device: str
     mode: str
     exec_dir: pathlib.Path
+    db_config: DatabaseConfig
 
 
 def detect_device() -> str:
@@ -33,19 +35,7 @@ def detect_device() -> str:
     return os.environ.get("DEVICE_NAME") or os.uname().nodename
 
 
-def load_db_config(path: pathlib.Path | None = None) -> DatabaseConfig:
-    """Load database settings from an INI file.
-
-    The file path is resolved via the FITS_DB_CONFIG environment variable or
-    defaults to ``config/db_config.ini``.
-    """
-
-    candidate = pathlib.Path(os.environ.get(CONFIG_ENV_VAR) or (path or DEFAULT_CONFIG_PATH))
-    if not candidate.exists():
-        raise FileNotFoundError(
-            f"Database config not found at {candidate}. Copy config/db_config.example.ini and set {CONFIG_ENV_VAR} if needed."
-        )
-
+def _load_from_path(candidate: pathlib.Path) -> DatabaseConfig:
     parser = configparser.ConfigParser()
     parser.read(candidate)
 
@@ -69,4 +59,36 @@ def load_db_config(path: pathlib.Path | None = None) -> DatabaseConfig:
         user=mysql_cfg["user"],
         password=mysql_cfg["password"],
         database=mysql_cfg["database"],
+    )
+
+
+def load_db_config(path: pathlib.Path | None = None) -> DatabaseConfig:
+    """Load database settings from an INI file.
+
+    The file path is resolved via the FITS_DB_CONFIG environment variable or
+    defaults to ``~/.config/fits/db_config.ini`` with a fallback to the
+    repository's ``config/db_config.ini`` for development.
+    """
+
+    env_override = os.environ.get(CONFIG_ENV_VAR)
+    if env_override:
+        candidate = pathlib.Path(env_override)
+        if not candidate.exists():
+            raise FileNotFoundError(
+                f"Database config not found at {candidate}. Copy config/db_config.example.ini and set {CONFIG_ENV_VAR} if needed."
+            )
+        return _load_from_path(candidate)
+
+    candidates: list[pathlib.Path] = []
+    if path:
+        candidates.append(path)
+    candidates.extend([USER_CONFIG_PATH, PACKAGE_CONFIG_PATH])
+
+    for candidate in candidates:
+        if candidate.exists():
+            return _load_from_path(candidate)
+
+    tried = ", ".join(str(candidate) for candidate in candidates)
+    raise FileNotFoundError(
+        f"Database config not found. Provide {CONFIG_ENV_VAR} or create one of: {tried}"
     )

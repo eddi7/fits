@@ -17,6 +17,12 @@ class CsvArtifact:
     table: str | None = None
 
 
+def build_artifact_name(database: str, table: str) -> str:
+    """Return a standardized artifact filename for a database table."""
+
+    return f"fits.db.{database}.{table}.csv"
+
+
 def write_csv(artifact: CsvArtifact, output_dir: pathlib.Path) -> pathlib.Path:
     """Write a CSV artifact to *output_dir* and return the file path."""
     output_dir.mkdir(parents=True, exist_ok=True)
