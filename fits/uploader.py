@@ -64,8 +64,8 @@ def upload_csv(path: pathlib.Path, table: str, config: DatabaseConfig) -> int:
         return 0
 
     placeholders = ",".join(["%s"] * len(rows[0]))
-    columns = ",".join(rows[0].keys())
-    sql = f"INSERT INTO {table} ({columns}) VALUES ({placeholders})"
+    columns = ",".join(f"`{column}`" for column in rows[0].keys())
+    sql = f"INSERT INTO `{table}` ({columns}) VALUES ({placeholders})"
 
     try:
         with connection.cursor() as cursor:
