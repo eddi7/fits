@@ -15,14 +15,16 @@ python -m fits.run analyze --mode coverage [--upload | --upload-test]
 
 Options:
 - `--upload` — upload generated CSV files to MySQL after writing them. Uploads also
-  create a single row in the `executions` table with the generated `exe_id` and the
-  chosen mode as `type`. Execution identifiers are generated inside the uploader as
-  18-digit integers shaped like `YYYYMMDDHHMMSS` + two random digits + a mode task id
+  create a single row in the `executions` table with the generated `exec_id`, the
+  chosen mode as `type`, and the absolute path of the execution directory stored as
+  `exec_dir`. Execution identifiers are generated inside the uploader as 18-digit
+  integers shaped like `YYYYMMDDHHMMSS` + two random digits + a mode task id
   (`01` for `dtk`, `02` for `coverage`).
-- `--upload-test` — same as `--upload` but generates an `exe_id` prefixed with `9999`
+- `--upload-test` — same as `--upload` but generates an `exec_id` prefixed with `9999`
   so you can distinguish test uploads from normal runs.
 
-Each mode currently writes a single, easy-to-read CSV defined in `fits/analyzers/*.py` so you can swap in your own logic without hunting through other files. DTK emits many rows with three columns (`exe_id`, `case`, `result`) where `result` is a 10-decimal fractional value; case names are simple "Path_Clip_*" strings to keep the structure obvious.
+Each run writes its artifacts into a single folder under the working directory named `FITS-RESULTS-<exec_id>`. Each mode currently writes a single, easy-to-read CSV defined in `fits/analyzers/*.py` so you can swap in your own logic without hunting through other files. DTK emits many rows with three columns (`exec_id`, `case`, `result`) where `result` is a 10-decimal fractional value; case names are simple "Path_Clip_*" strings to keep the structure obvious.
+Output filenames follow the pattern `fitsdb-<exec_id>.<table>.csv` to match the MySQL table names used during upload.
 
 ## Configuration
 

@@ -10,11 +10,11 @@ from ..config import RunContext
 def build_coverage_artifacts(context: RunContext) -> Iterable[CsvArtifact]:
     """Construct a simple CSV artifact for coverage mode."""
     yield CsvArtifact(
-        name=f"coverage_summary_{context.exe_id}.csv",
-        headers=["exe_id", "device", "suite", "percent"],
+        name=f"fitsdb-{context.exec_id}.coverage_summary.csv",
+        headers=["exec_id", "device", "suite", "percent"],
         rows=[
             {
-                "exe_id": context.exe_id,
+                "exec_id": context.exec_id,
                 "device": context.device,
                 "suite": "sample_suite",
                 "percent": 0.0,
