@@ -15,7 +15,7 @@ python -m fits.run analyze --mode coverage [--upload | --upload-test]
 
 Options:
 - `--upload` — upload generated CSV files to MySQL after writing them. Uploads also
-  create a single row in the `excutions` table with the generated `exe_id` and the
+  create a single row in the `executions` table with the generated `exe_id` and the
   chosen mode as `type`. Execution identifiers are generated inside the uploader as
   18-digit integers shaped like `YYYYMMDDHHMMSS` + two random digits + a mode task id
   (`01` for `dtk`, `02` for `coverage`).
@@ -28,7 +28,7 @@ Each mode currently writes a single, easy-to-read CSV defined in `fits/analyzers
 
 Database connection settings are loaded from `config/db_config.ini` (or a path pointed to by the `FITS_DB_CONFIG` environment variable). Copy `config/db_config.example.ini` to `config/db_config.ini`, fill in your host, user, password, and database, and keep real credentials out of the codebase.
 
-Uploads rely on the `excutions` table (for the execution row) plus any tables referenced by analyzer CSVs (e.g., `dtk_summary` or `coverage_summary`).
+Uploads rely on the `executions` table (for the execution row) plus any tables referenced by analyzer CSVs (e.g., `dtk_summary` or `coverage_summary`).
 
 ## Development Notes
 
