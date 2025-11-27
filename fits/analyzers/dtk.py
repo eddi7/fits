@@ -11,10 +11,11 @@ from ..config import RunContext
 def _results_path(context: RunContext) -> pathlib.Path:
     """Return the expected path for the DTK results text file."""
 
-    path = context.exec_dir / "result" / "output.txt"
-    if not path.exists():
-        raise FileNotFoundError(f"DTK results not found at {path}")
-    return path
+    default_path = context.exec_dir.parent / "result" / "output.txt"
+    if not default_path.exists():
+        raise FileNotFoundError(f"DTK results not found at {default_path}")
+
+    return default_path
 
 
 def _parse_result_line(line: str) -> tuple[str, str]:
