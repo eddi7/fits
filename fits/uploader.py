@@ -88,13 +88,13 @@ def upload_many(paths: Iterable[tuple[pathlib.Path, str]], config: DatabaseConfi
 
 
 def record_execution(exe_id: str, mode: str, config: DatabaseConfig) -> None:
-    """Insert a single execution row into the excutions table."""
+    """Insert a single execution row into the executions table."""
 
     connection, _ = _connect(config)
     try:
         with connection.cursor() as cursor:
             cursor.execute(
-                "INSERT INTO excutions (exe_id, type) VALUES (%s, %s)",
+                "INSERT INTO executions (exe_id, type) VALUES (%s, %s)",
                 (int(exe_id), mode),
             )
         connection.commit()
