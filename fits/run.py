@@ -34,12 +34,14 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 
 
 def build_context(args: argparse.Namespace) -> RunContext:
+    db_config = load_db_config()
     exec_id = generate_exec_id(args.mode, test=args.upload_test)
     return RunContext(
         exec_id=exec_id,
         device=detect_device(),
         mode=args.mode,
         exec_dir=pathlib.Path(f"FITS-RESULTS-{exec_id}").resolve(),
+        db_config=db_config,
     )
 
 
@@ -55,7 +57,12 @@ def _write_artifacts(artifacts: Sequence[CsvArtifact], output_dir: pathlib.Path)
 def handle_analyze(args: argparse.Namespace) -> int:
     analyzers = available_analyzers()
     spec = analyzers[args.mode]
-    context = build_context(args)
+
+    try:
+        context = build_context(args)
+    except (FileNotFoundError, ValueError) as exc:
+        print(f"Run setup failed: {exc}")
+        return 1
 
     artifacts = list(spec.build(context))
     uploads = _write_artifacts(artifacts, context.exec_dir)
@@ -66,11 +73,14 @@ def handle_analyze(args: argparse.Namespace) -> int:
 
     if args.upload or args.upload_test:
         try:
-            db_config = load_db_config()
             if context.mode == "dtk":
-                inserted = upload_dtk(uploads, db_config, context.exec_id, context.exec_dir)
+                inserted = upload_dtk(
+                    uploads, context.db_config, context.exec_id, context.exec_dir
+                )
             else:
-                inserted = upload_coverage(uploads, db_config, context.exec_id, context.exec_dir)
+                inserted = upload_coverage(
+                    uploads, context.db_config, context.exec_id, context.exec_dir
+                )
         except (UploadError, FileNotFoundError, ValueError) as exc:
             print(f"Upload failed: {exc}")
             return 1
