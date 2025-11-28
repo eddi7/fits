@@ -26,6 +26,7 @@ class RunContext:
     exec_id: str
     device: str
     mode: str
+    data_type: str | None
     exec_dir: pathlib.Path
     db_config: DatabaseConfig
 
