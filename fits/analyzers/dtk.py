@@ -31,8 +31,12 @@ def _baseline_path(context: RunContext) -> pathlib.Path:
     return default_path
 
 
-def _parse_result_line(line: str) -> tuple[str, str]:
-    """Parse a single DTK result line of the form ``<case>#<result>``."""
+def _parse_result_line(line: str) -> tuple[str, str | None]:
+    """Parse a single DTK result line of the form ``<case>#<result>``.
+
+    Empty result fields are interpreted as ``None`` so they can be inserted as
+    ``NULL`` values in the database.
+    """
 
     trimmed = line.strip()
     if not trimmed:
@@ -42,13 +46,16 @@ def _parse_result_line(line: str) -> tuple[str, str]:
         raise ValueError(f"Invalid DTK result format: {trimmed}")
 
     case, result = trimmed.split("#", 1)
-    if not case or not result:
+    if not case:
         raise ValueError(f"Invalid DTK result format: {trimmed}")
+
+    if result == "":
+        return case, None
 
     return case, result
 
 
-def _read_results(context: RunContext) -> Iterator[dict[str, str]]:
+def _read_results(context: RunContext) -> Iterator[dict[str, str | None]]:
     """Yield parsed DTK results with optional baseline values.
 
     Case names ending with ``.jpg`` have the suffix removed so image artifacts
@@ -58,8 +65,8 @@ def _read_results(context: RunContext) -> Iterator[dict[str, str]]:
     results_path = _results_path(context)
     baseline_path = _baseline_path(context)
 
-    def _read_cases(path: pathlib.Path) -> list[tuple[str, str]]:
-        cases: list[tuple[str, str]] = []
+    def _read_cases(path: pathlib.Path) -> list[tuple[str, str | None]]:
+        cases: list[tuple[str, str | None]] = []
         with path.open() as results_file:
             for line in results_file:
                 case, value = _parse_result_line(line)
