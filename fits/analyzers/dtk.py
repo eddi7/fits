@@ -21,6 +21,16 @@ def _results_path(context: RunContext) -> pathlib.Path:
     return default_path
 
 
+def _baseline_path(context: RunContext) -> pathlib.Path:
+    """Return the expected path for the DTK baseline text file."""
+
+    default_path = context.exec_dir.parent / "standard_fully.txt"
+    if not default_path.exists():
+        raise FileNotFoundError(f"DTK baseline not found at {default_path}")
+
+    return default_path
+
+
 def _parse_result_line(line: str) -> tuple[str, str]:
     """Parse a single DTK result line of the form ``<case>#<result>``."""
 
@@ -39,20 +49,49 @@ def _parse_result_line(line: str) -> tuple[str, str]:
 
 
 def _read_results(context: RunContext) -> Iterator[dict[str, str]]:
-    """Yield parsed DTK results from the execution directory.
+    """Yield parsed DTK results with optional baseline values.
 
     Case names ending with ``.jpg`` have the suffix removed so image artifacts
     are normalized to their associated case names.
     """
 
-    path = _results_path(context)
-    with path.open() as results_file:
-        for line in results_file:
-            case, result = _parse_result_line(line)
-            if case.lower().endswith(".jpg"):
-                case = case[:-4]
+    results_path = _results_path(context)
+    baseline_path = _baseline_path(context)
 
-            yield {"exec_id": context.exec_id, "case": case, "result": result}
+    def _read_cases(path: pathlib.Path) -> list[tuple[str, str]]:
+        cases: list[tuple[str, str]] = []
+        with path.open() as results_file:
+            for line in results_file:
+                case, value = _parse_result_line(line)
+                if case.lower().endswith(".jpg"):
+                    case = case[:-4]
+                cases.append((case, value))
+        return cases
+
+    results = _read_cases(results_path)
+    baselines = _read_cases(baseline_path)
+
+    baseline_lookup = {case: value for case, value in baselines}
+    seen: set[str] = set()
+
+    for case, result in results:
+        seen.add(case)
+        yield {
+            "exec_id": context.exec_id,
+            "case": case,
+            "result": result,
+            "baseline": baseline_lookup.get(case),
+        }
+
+    for case, baseline in baselines:
+        if case in seen:
+            continue
+        yield {
+            "exec_id": context.exec_id,
+            "case": case,
+            "result": None,
+            "baseline": baseline,
+        }
 
 
 def build_dtk_artifacts(context: RunContext) -> Iterable[CsvArtifact]:
@@ -60,7 +99,7 @@ def build_dtk_artifacts(context: RunContext) -> Iterable[CsvArtifact]:
 
     yield CsvArtifact(
         name=build_artifact_name(context.db_config.database, DTK_RESULTS_TABLE),
-        headers=["exec_id", "case", "result"],
+        headers=["exec_id", "case", "result", "baseline"],
         rows=_read_results(context),
         table=DTK_RESULTS_TABLE,
     )
