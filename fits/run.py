@@ -18,8 +18,8 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     analyze = subparsers.add_parser("analyze", help="Run an analysis mode")
     analyze.add_argument("--mode", choices=available_analyzers().keys(), required=True)
     analyze.add_argument(
-        "--data-type",
-        dest="data_type",
+        "--device-type",
+        dest="device_type",
         help="Optional device type to record with the execution",
     )
     upload_group = analyze.add_mutually_exclusive_group()
@@ -45,7 +45,7 @@ def build_context(args: argparse.Namespace) -> RunContext:
         exec_id=exec_id,
         device=detect_device(),
         mode=args.mode,
-        data_type=args.data_type,
+        device_type=args.device_type,
         exec_dir=pathlib.Path(f"FITS-RESULTS-{exec_id}").resolve(),
         db_config=db_config,
     )
@@ -77,8 +77,8 @@ def handle_analyze(args: argparse.Namespace) -> int:
         f"Run {context.exec_id} ({context.mode}) wrote {len(artifacts)} CSV file(s) to {context.exec_dir}"
     )
 
-    if not context.data_type:
-        print("Warning: --data-type not provided; continuing without device type.")
+    if not context.device_type:
+        print("Warning: --device-type not provided; continuing without device type.")
 
     if args.upload or args.upload_test:
         try:
@@ -88,7 +88,7 @@ def handle_analyze(args: argparse.Namespace) -> int:
                     context.db_config,
                     context.exec_id,
                     context.exec_dir,
-                    device_type=context.data_type,
+                    device_type=context.device_type,
                 )
             else:
                 inserted = upload_coverage(
@@ -96,7 +96,7 @@ def handle_analyze(args: argparse.Namespace) -> int:
                     context.db_config,
                     context.exec_id,
                     context.exec_dir,
-                    device_type=context.data_type,
+                    device_type=context.device_type,
                 )
         except (UploadError, FileNotFoundError, ValueError) as exc:
             print(f"Upload failed: {exc}")
