@@ -36,7 +36,11 @@ def generate_exec_id(mode: str, *, test: bool = False) -> str:
 def _read_rows(path: pathlib.Path):
     with path.open(newline="") as csv_file:
         reader = csv.DictReader(csv_file)
-        yield from reader
+        for row in reader:
+            yield {
+                key: None if value == "" else value
+                for key, value in row.items()
+            }
 
 
 def _connect(config: DatabaseConfig):
