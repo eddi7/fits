@@ -17,11 +17,13 @@ pip install .
 Runs an analysis in a specified mode and writes CSV artifacts.
 
 ```bash
-python -m fits.run analyze --mode dtk [--upload | --upload-test]
-python -m fits.run analyze --mode coverage [--upload | --upload-test]
+python -m fits.run analyze --mode dtk [--device-type <name>] [--upload | --upload-test]
+python -m fits.run analyze --mode coverage [--device-type <name>] [--upload | --upload-test]
 ```
 
 Options:
+- `--device-type` — optional label to record the device type with the execution; the
+  value is stored in the `executions` table when uploads are enabled.
 - `--upload` — upload generated CSV files to MySQL after writing them. Uploads also
   create a single row in the `executions` table with the generated `exec_id`, the
   chosen mode as `type`, and the absolute path of the execution directory stored as
