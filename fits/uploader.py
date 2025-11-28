@@ -87,15 +87,22 @@ def upload_many(paths: Iterable[tuple[pathlib.Path, str]], config: DatabaseConfi
     return total
 
 
-def record_execution(exec_id: str, mode: str, exec_dir: pathlib.Path, config: DatabaseConfig) -> None:
+def record_execution(
+    exec_id: str,
+    mode: str,
+    exec_dir: pathlib.Path,
+    config: DatabaseConfig,
+    *,
+    device_type: str | None = None,
+) -> None:
     """Insert a single execution row into the executions table."""
 
     connection, _ = _connect(config)
     try:
         with connection.cursor() as cursor:
             cursor.execute(
-                "INSERT INTO executions (exec_id, type, exec_dir) VALUES (%s, %s, %s)",
-                (int(exec_id), mode, str(exec_dir)),
+                "INSERT INTO executions (exec_id, type, exec_dir, device_type) VALUES (%s, %s, %s, %s)",
+                (int(exec_id), mode, str(exec_dir), device_type),
             )
         connection.commit()
     except Exception as exc:  # pragma: no cover - runtime dependent
@@ -114,20 +121,30 @@ def ensure_ready(paths: Iterable[tuple[pathlib.Path, str]]) -> None:
 
 
 def upload_dtk(
-    paths: Iterable[tuple[pathlib.Path, str]], config: DatabaseConfig, exec_id: str, exec_dir: pathlib.Path
+    paths: Iterable[tuple[pathlib.Path, str]],
+    config: DatabaseConfig,
+    exec_id: str,
+    exec_dir: pathlib.Path,
+    *,
+    device_type: str | None = None,
 ) -> int:
     """Upload DTK artifacts and record the execution."""
 
     ensure_ready(paths)
-    record_execution(exec_id, "dtk", exec_dir, config)
+    record_execution(exec_id, "dtk", exec_dir, config, device_type=device_type)
     return upload_many(paths, config)
 
 
 def upload_coverage(
-    paths: Iterable[tuple[pathlib.Path, str]], config: DatabaseConfig, exec_id: str, exec_dir: pathlib.Path
+    paths: Iterable[tuple[pathlib.Path, str]],
+    config: DatabaseConfig,
+    exec_id: str,
+    exec_dir: pathlib.Path,
+    *,
+    device_type: str | None = None,
 ) -> int:
     """Upload coverage artifacts and record the execution."""
 
     ensure_ready(paths)
-    record_execution(exec_id, "coverage", exec_dir, config)
+    record_execution(exec_id, "coverage", exec_dir, config, device_type=device_type)
     return upload_many(paths, config)
