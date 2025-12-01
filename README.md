@@ -17,23 +17,31 @@ pip install .
 Runs an analysis in a specified mode and writes CSV artifacts.
 
 ```bash
-python -m fits.run analyze --mode dtk [--device-type <name>] [--upload | --upload-test]
-python -m fits.run analyze --mode coverage [--device-type <name>] [--upload | --upload-test]
+python -m fits.run analyze --build-type dtk [--device-type <name>] [--archive-dir <path>] [--started-at <iso-datetime>] [--completed-at <iso-datetime>] [--upload | --upload-test]
+python -m fits.run analyze --build-type coverage [--device-type <name>] [--archive-dir <path>] [--started-at <iso-datetime>] [--completed-at <iso-datetime>] [--upload | --upload-test]
 ```
 
 Options:
+- `--build-type` — required analysis type to run; accepts case-insensitive values
+  matching available analyzers (e.g., `dtk`, `coverage`).
 - `--device-type` — optional label to record the device type with the execution; the
-  value is stored in the `executions` table when uploads are enabled.
+  value is stored in the `executions` table when uploads are enabled. The value is
+  normalized to lowercase.
+- `--archive-dir` — optional directory for writing CSV artifacts; defaults to
+  `FITS-RESULTS-<exec_id>`.
+- `--started-at` / `--completed-at` — optional ISO 8601 timestamps saved to the
+  `executions` table as `started_at` and `completed_at`. If omitted, the values
+  remain `NULL` in uploads and CSVs.
 - `--upload` — upload generated CSV files to MySQL after writing them. Uploads also
   create a single row in the `executions` table with the generated `exec_id`, the
-  chosen mode as `type`, and the absolute path of the execution directory stored as
-  `exec_dir`. Execution identifiers are generated inside the uploader as 18-digit
+  chosen build type as `build_type`, and the absolute path of the archive directory stored as
+  `archive_dir`. Execution identifiers are generated inside the uploader as 18-digit
   integers shaped like `YYYYMMDDHHMMSS` + two random digits + a mode task id
   (`01` for `dtk`, `02` for `coverage`).
 - `--upload-test` — same as `--upload` but generates an `exec_id` prefixed with `9999`
   so you can distinguish test uploads from normal runs.
 
-Each run writes its artifacts into a single folder under the working directory named `FITS-RESULTS-<exec_id>`. Each mode currently writes a single, easy-to-read CSV defined in `fits/analyzers/*.py` so you can swap in your own logic without hunting through other files. DTK emits many rows with three columns (`exec_id`, `case`, `result`) where `result` is a 10-decimal fractional value; case names are simple "Path_Clip_*" strings to keep the structure obvious.
+Each run writes its artifacts into a single folder under the working directory named `FITS-RESULTS-<exec_id>` unless overridden by `--archive-dir`. Each mode currently writes a single, easy-to-read CSV defined in `fits/analyzers/*.py` so you can swap in your own logic without hunting through other files. DTK emits many rows with three columns (`exec_id`, `case`, `result`) where `result` is a 10-decimal fractional value; case names are simple "Path_Clip_*" strings to keep the structure obvious.
 Output filenames follow the pattern `fits.db.<database>.<table>.csv` to match the MySQL table and database names used during upload.
 
 ### DTK case-to-module mapping

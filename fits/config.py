@@ -5,6 +5,7 @@ import configparser
 import os
 import pathlib
 from dataclasses import dataclass
+from datetime import datetime
 
 
 CONFIG_ENV_VAR = "FITS_DB_CONFIG"
@@ -25,9 +26,11 @@ class DatabaseConfig:
 class RunContext:
     exec_id: str
     device: str
-    mode: str
+    build_type: str
     device_type: str | None
-    exec_dir: pathlib.Path
+    archive_dir: pathlib.Path
+    started_at: datetime | None
+    completed_at: datetime | None
     db_config: DatabaseConfig
 
 

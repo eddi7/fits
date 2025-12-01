@@ -4,10 +4,11 @@ from __future__ import annotations
 import argparse
 import pathlib
 import subprocess
+from datetime import datetime
 from typing import Sequence
 
 from .analyzers import available_analyzers
-from .artifacts import CsvArtifact, write_csv
+from .artifacts import CsvArtifact, build_artifact_name, write_csv
 from .config import RunContext, detect_device, load_db_config
 from .uploader import UploadError, generate_exec_id, upload_coverage, upload_dtk
 
@@ -17,11 +18,36 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     analyze = subparsers.add_parser("analyze", help="Run an analysis mode")
-    analyze.add_argument("--mode", choices=available_analyzers().keys(), required=True)
+    analyze.add_argument(
+        "--build-type",
+        dest="build_type",
+        type=str.lower,
+        choices=available_analyzers().keys(),
+        required=True,
+    )
+    analyze.add_argument(
+        "--archive-dir",
+        dest="archive_dir",
+        type=pathlib.Path,
+        help="Optional archive directory to use instead of the default",
+    )
     analyze.add_argument(
         "--device-type",
         dest="device_type",
+        type=str.lower,
         help="Optional device type to record with the execution",
+    )
+    analyze.add_argument(
+        "--started-at",
+        dest="started_at",
+        type=datetime.fromisoformat,
+        help="Optional start time for the execution (ISO 8601)",
+    )
+    analyze.add_argument(
+        "--completed-at",
+        dest="completed_at",
+        type=datetime.fromisoformat,
+        help="Optional completion time for the execution (ISO 8601)",
     )
     upload_group = analyze.add_mutually_exclusive_group()
     upload_group.add_argument(
@@ -41,13 +67,16 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 
 def build_context(args: argparse.Namespace) -> RunContext:
     db_config = load_db_config()
-    exec_id = generate_exec_id(args.mode, test=args.upload_test)
+    exec_id = generate_exec_id(args.build_type, test=args.upload_test)
+    archive_dir = args.archive_dir or pathlib.Path(f"FITS-RESULTS-{exec_id}")
     return RunContext(
         exec_id=exec_id,
         device=detect_device(),
-        mode=args.mode,
+        build_type=args.build_type,
         device_type=args.device_type,
-        exec_dir=pathlib.Path(f"FITS-RESULTS-{exec_id}").resolve(),
+        archive_dir=archive_dir.resolve(),
+        started_at=args.started_at,
+        completed_at=args.completed_at,
         db_config=db_config,
     )
 
@@ -77,9 +106,37 @@ def _write_artifacts(artifacts: Sequence[CsvArtifact], output_dir: pathlib.Path)
     return written
 
 
+def _build_execution_artifact(context: RunContext) -> CsvArtifact:
+    return CsvArtifact(
+        name=build_artifact_name(context.db_config.database, "executions"),
+        headers=[
+            "exec_id",
+            "build_type",
+            "archive_dir",
+            "device_type",
+            "started_at",
+            "completed_at",
+        ],
+        rows=[
+            {
+                "exec_id": context.exec_id,
+                "build_type": context.build_type,
+                "archive_dir": str(context.archive_dir),
+                "device_type": context.device_type,
+                "started_at": context.started_at.isoformat()
+                if context.started_at
+                else None,
+                "completed_at": context.completed_at.isoformat()
+                if context.completed_at
+                else None,
+            }
+        ],
+    )
+
+
 def handle_analyze(args: argparse.Namespace) -> int:
     analyzers = available_analyzers()
-    spec = analyzers[args.mode]
+    spec = analyzers[args.build_type]
 
     try:
         context = build_context(args)
@@ -87,11 +144,14 @@ def handle_analyze(args: argparse.Namespace) -> int:
         print(f"Run setup failed: {exc}")
         return 1
 
-    artifacts = list(spec.build(context))
-    uploads = _write_artifacts(artifacts, context.exec_dir)
+    artifacts = [
+        _build_execution_artifact(context),
+        *list(spec.build(context)),
+    ]
+    uploads = _write_artifacts(artifacts, context.archive_dir)
 
     print(
-        f"Run {context.exec_id} ({context.mode}) wrote {len(artifacts)} CSV file(s) to {context.exec_dir}"
+        f"Run {context.exec_id} ({context.build_type}) wrote {len(artifacts)} CSV file(s) to {context.archive_dir}"
     )
 
     if not context.device_type:
@@ -99,21 +159,25 @@ def handle_analyze(args: argparse.Namespace) -> int:
 
     if args.upload or args.upload_test:
         try:
-            if context.mode == "dtk":
+            if context.build_type == "dtk":
                 inserted = upload_dtk(
                     uploads,
                     context.db_config,
                     context.exec_id,
-                    context.exec_dir,
+                    context.archive_dir,
                     device_type=context.device_type,
+                    started_at=context.started_at,
+                    completed_at=context.completed_at,
                 )
             else:
                 inserted = upload_coverage(
                     uploads,
                     context.db_config,
                     context.exec_id,
-                    context.exec_dir,
+                    context.archive_dir,
                     device_type=context.device_type,
+                    started_at=context.started_at,
+                    completed_at=context.completed_at,
                 )
         except (UploadError, FileNotFoundError, ValueError) as exc:
             print(f"Upload failed: {exc}")

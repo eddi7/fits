@@ -15,7 +15,7 @@ DTK_RESULTS_TABLE = "dtk_results"
 def _results_path(context: RunContext) -> pathlib.Path:
     """Return the expected path for the DTK results text file."""
 
-    default_path = context.exec_dir.parent / "result" / "output.txt"
+    default_path = context.archive_dir.parent / "result" / "output.txt"
     if not default_path.exists():
         raise FileNotFoundError(f"DTK results not found at {default_path}")
 
@@ -25,7 +25,7 @@ def _results_path(context: RunContext) -> pathlib.Path:
 def _baseline_path(context: RunContext) -> pathlib.Path:
     """Return the expected path for the DTK baseline text file."""
 
-    default_path = context.exec_dir.parent / "standard_fully.txt"
+    default_path = context.archive_dir.parent / "standard_fully.txt"
     if not default_path.exists():
         raise FileNotFoundError(f"DTK baseline not found at {default_path}")
 
