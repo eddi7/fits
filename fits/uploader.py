@@ -34,7 +34,7 @@ def generate_exec_id(mode: str, *, test: bool = False) -> str:
 
 
 def _read_rows(path: pathlib.Path):
-    with path.open(newline="") as csv_file:
+    with path.open(newline="", encoding="utf-8-sig") as csv_file:
         reader = csv.DictReader(csv_file)
         for row in reader:
             yield {

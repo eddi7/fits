@@ -62,7 +62,11 @@ def _load_mapping(
     mapping: dict[str, str] = {}
 
     try:
-        with path.open(newline="") as mapping_file:
+        # ``utf-8-sig`` handles CSV files that include a UTF-8 BOM, which
+        # otherwise pollutes the first field name (e.g., ``\ufeffcasename``)
+        # and prevents the mapping from being populated. It also supports
+        # Chinese characters commonly present in FITS-provided CSV files.
+        with path.open(newline="", encoding="utf-8-sig") as mapping_file:
             reader = csv.DictReader(mapping_file)
             if not reader.fieldnames or {
                 key_field,

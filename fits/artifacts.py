@@ -27,7 +27,7 @@ def write_csv(artifact: CsvArtifact, output_dir: pathlib.Path) -> pathlib.Path:
     """Write a CSV artifact to *output_dir* and return the file path."""
     output_dir.mkdir(parents=True, exist_ok=True)
     path = output_dir / artifact.name
-    with path.open("w", newline="") as csv_file:
+    with path.open("w", newline="", encoding="utf-8-sig") as csv_file:
         writer = csv.DictWriter(csv_file, fieldnames=list(artifact.headers))
         writer.writeheader()
         for row in artifact.rows:
