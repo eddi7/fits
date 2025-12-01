@@ -15,19 +15,19 @@ class UploadError(RuntimeError):
     """Raised when a CSV upload fails."""
 
 
-def _mode_task_id(mode: str) -> str:
+def _mode_task_id(build_type: str) -> str:
     mapping = {"dtk": "01", "coverage": "02"}
-    if mode not in mapping:
-        raise ValueError(f"Unknown mode '{mode}' for exec_id generation")
-    return mapping[mode]
+    if build_type not in mapping:
+        raise ValueError(f"Unknown build_type '{build_type}' for exec_id generation")
+    return mapping[build_type]
 
 
-def generate_exec_id(mode: str, *, test: bool = False) -> str:
+def generate_exec_id(build_type: str, *, test: bool = False) -> str:
     """Build an 18-digit execution identifier for uploads."""
 
     now = datetime.now()
     random_suffix = f"{random.randint(0, 99):02d}"
-    task_id = _mode_task_id(mode)
+    task_id = _mode_task_id(build_type)
     prefix = "9999" if test else now.strftime("%Y")
     timestamp = now.strftime("%m%d%H%M%S")
     return f"{prefix}{timestamp}{random_suffix}{task_id}"
@@ -93,11 +93,13 @@ def upload_many(paths: Iterable[tuple[pathlib.Path, str]], config: DatabaseConfi
 
 def record_execution(
     exec_id: str,
-    mode: str,
-    exec_dir: pathlib.Path,
+    build_type: str,
+    archive_dir: pathlib.Path,
     config: DatabaseConfig,
     *,
     device_type: str | None = None,
+    started_at: datetime | None = None,
+    completed_at: datetime | None = None,
 ) -> None:
     """Insert a single execution row into the executions table."""
 
@@ -105,8 +107,15 @@ def record_execution(
     try:
         with connection.cursor() as cursor:
             cursor.execute(
-                "INSERT INTO executions (exec_id, type, exec_dir, device_type) VALUES (%s, %s, %s, %s)",
-                (int(exec_id), mode, str(exec_dir), device_type),
+                "INSERT INTO executions (exec_id, build_type, archive_dir, device_type, started_at, completed_at) VALUES (%s, %s, %s, %s, %s, %s)",
+                (
+                    int(exec_id),
+                    build_type,
+                    str(archive_dir),
+                    device_type,
+                    started_at,
+                    completed_at,
+                ),
             )
         connection.commit()
     except Exception as exc:  # pragma: no cover - runtime dependent
@@ -128,14 +137,24 @@ def upload_dtk(
     paths: Iterable[tuple[pathlib.Path, str]],
     config: DatabaseConfig,
     exec_id: str,
-    exec_dir: pathlib.Path,
+    archive_dir: pathlib.Path,
     *,
     device_type: str | None = None,
+    started_at: datetime | None = None,
+    completed_at: datetime | None = None,
 ) -> int:
     """Upload DTK artifacts and record the execution."""
 
     ensure_ready(paths)
-    record_execution(exec_id, "dtk", exec_dir, config, device_type=device_type)
+    record_execution(
+        exec_id,
+        "dtk",
+        archive_dir,
+        config,
+        device_type=device_type,
+        started_at=started_at,
+        completed_at=completed_at,
+    )
     return upload_many(paths, config)
 
 
@@ -143,12 +162,22 @@ def upload_coverage(
     paths: Iterable[tuple[pathlib.Path, str]],
     config: DatabaseConfig,
     exec_id: str,
-    exec_dir: pathlib.Path,
+    archive_dir: pathlib.Path,
     *,
     device_type: str | None = None,
+    started_at: datetime | None = None,
+    completed_at: datetime | None = None,
 ) -> int:
     """Upload coverage artifacts and record the execution."""
 
     ensure_ready(paths)
-    record_execution(exec_id, "coverage", exec_dir, config, device_type=device_type)
+    record_execution(
+        exec_id,
+        "coverage",
+        archive_dir,
+        config,
+        device_type=device_type,
+        started_at=started_at,
+        completed_at=completed_at,
+    )
     return upload_many(paths, config)
