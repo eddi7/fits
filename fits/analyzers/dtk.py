@@ -83,18 +83,13 @@ def _load_mapping(
 
 
 def _module_for_case(case: str, case_to_module: dict[str, str]) -> str | None:
-    best_match: str | None = None
-    best_length = 0
+    case_prefix = case.split("_", 1)[0]
 
     for casename, module in case_to_module.items():
-        if not case.startswith(casename):
-            continue
+        if casename == case_prefix:
+            return module
 
-        if len(casename) > best_length:
-            best_match = module
-            best_length = len(casename)
-
-    return best_match
+    return None
 
 
 def _read_results(
