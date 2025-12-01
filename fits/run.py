@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import pathlib
+import subprocess
 from typing import Sequence
 
 from .analyzers import available_analyzers
@@ -49,6 +50,22 @@ def build_context(args: argparse.Namespace) -> RunContext:
         exec_dir=pathlib.Path(f"FITS-RESULTS-{exec_id}").resolve(),
         db_config=db_config,
     )
+
+
+def _clone_configs() -> bool:
+    try:
+        subprocess.run(["git-clone-configs"], check=True)
+    except FileNotFoundError:
+        print("Run setup failed: git-clone-configs command not found")
+        return False
+    except subprocess.CalledProcessError as exc:
+        print(
+            "Run setup failed: git-clone-configs exited with status "
+            f"{exc.returncode}"
+        )
+        return False
+
+    return True
 
 
 def _write_artifacts(artifacts: Sequence[CsvArtifact], output_dir: pathlib.Path):
@@ -108,6 +125,9 @@ def handle_analyze(args: argparse.Namespace) -> int:
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = parse_args(argv)
+
+    if not _clone_configs():
+        return 1
 
     if args.command == "analyze":
         return handle_analyze(args)

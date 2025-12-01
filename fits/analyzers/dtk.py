@@ -1,6 +1,7 @@
 """DTK analysis artifact builders."""
 from __future__ import annotations
 
+import csv
 import pathlib
 from typing import Iterable, Iterator
 
@@ -55,7 +56,52 @@ def _parse_result_line(line: str) -> tuple[str, str | None]:
     return case, result
 
 
-def _read_results(context: RunContext) -> Iterator[dict[str, str | None]]:
+def _load_mapping(
+    path: pathlib.Path, key_field: str, value_field: str
+) -> dict[str, str]:
+    mapping: dict[str, str] = {}
+
+    try:
+        with path.open(newline="") as mapping_file:
+            reader = csv.DictReader(mapping_file)
+            if not reader.fieldnames or {
+                key_field,
+                value_field,
+            } - set(reader.fieldnames):
+                return mapping
+
+            for row in reader:
+                key = (row.get(key_field) or "").strip()
+                value = (row.get(value_field) or "").strip()
+                if not key or not value:
+                    continue
+                mapping[key] = value
+    except FileNotFoundError:
+        return mapping
+
+    return mapping
+
+
+def _module_for_case(case: str, case_to_module: dict[str, str]) -> str | None:
+    best_match: str | None = None
+    best_length = 0
+
+    for casename, module in case_to_module.items():
+        if not case.startswith(casename):
+            continue
+
+        if len(casename) > best_length:
+            best_match = module
+            best_length = len(casename)
+
+    return best_match
+
+
+def _read_results(
+    context: RunContext,
+    case_to_module: dict[str, str],
+    module_to_owner: dict[str, str],
+) -> Iterator[dict[str, str | None]]:
     """Yield parsed DTK results with optional baseline values.
 
     Case names ending with ``.jpg`` have the suffix removed so image artifacts
@@ -83,9 +129,12 @@ def _read_results(context: RunContext) -> Iterator[dict[str, str | None]]:
 
     for case, result in results:
         seen.add(case)
+        module = _module_for_case(case, case_to_module)
         yield {
             "exec_id": context.exec_id,
             "case": case,
+            "module": module,
+            "owner": module_to_owner.get(module) if module else None,
             "result": result,
             "baseline": baseline_lookup.get(case),
         }
@@ -93,9 +142,12 @@ def _read_results(context: RunContext) -> Iterator[dict[str, str | None]]:
     for case, baseline in baselines:
         if case in seen:
             continue
+        module = _module_for_case(case, case_to_module)
         yield {
             "exec_id": context.exec_id,
             "case": case,
+            "module": module,
+            "owner": module_to_owner.get(module) if module else None,
             "result": None,
             "baseline": baseline,
         }
@@ -104,9 +156,13 @@ def _read_results(context: RunContext) -> Iterator[dict[str, str | None]]:
 def build_dtk_artifacts(context: RunContext) -> Iterable[CsvArtifact]:
     """Construct a DTK CSV with execution id, case name, and result."""
 
+    config_dir = pathlib.Path.cwd() / "FITS"
+    case_to_module = _load_mapping(config_dir / "casename-to-module.csv", "casename", "module")
+    module_to_owner = _load_mapping(config_dir / "module-to-owner.csv", "module", "owner")
+
     yield CsvArtifact(
         name=build_artifact_name(context.db_config.database, DTK_RESULTS_TABLE),
-        headers=["exec_id", "case", "result", "baseline"],
-        rows=_read_results(context),
+        headers=["exec_id", "case", "module", "owner", "result", "baseline"],
+        rows=_read_results(context, case_to_module, module_to_owner),
         table=DTK_RESULTS_TABLE,
     )
