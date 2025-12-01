@@ -36,6 +36,10 @@ Options:
 Each run writes its artifacts into a single folder under the working directory named `FITS-RESULTS-<exec_id>`. Each mode currently writes a single, easy-to-read CSV defined in `fits/analyzers/*.py` so you can swap in your own logic without hunting through other files. DTK emits many rows with three columns (`exec_id`, `case`, `result`) where `result` is a 10-decimal fractional value; case names are simple "Path_Clip_*" strings to keep the structure obvious.
 Output filenames follow the pattern `fits.db.<database>.<table>.csv` to match the MySQL table and database names used during upload.
 
+### DTK case-to-module mapping
+
+DTK results can enrich each case with module and owner metadata by reading two optional CSVs from the working directory: `casename-to-module.csv` and `module-to-owner.csv`. When resolving modules, only the case prefix (the letters before the first `_` in the case name) is compared to the `casename` column in `casename-to-module.csv`, so mappings remain stable even when additional suffixes appear in case identifiers.
+
 ## Configuration
 
 Database connection settings are loaded from `~/.config/fits/db_config.ini` (or a path pointed to by the `FITS_DB_CONFIG` environment variable). A repository-local `config/db_config.ini` is still honored for development. Copy `config/db_config.example.ini` to your config location, fill in your host, user, password, and database, and keep real credentials out of the codebase.
