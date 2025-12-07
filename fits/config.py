@@ -28,6 +28,7 @@ class RunContext:
     device: str
     build_type: str
     device_type: str | None
+    info_path: pathlib.Path | None
     archive_dir: pathlib.Path
     started_at: datetime | None
     completed_at: datetime | None

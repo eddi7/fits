@@ -17,8 +17,8 @@ pip install .
 Runs an analysis in a specified mode and writes CSV artifacts.
 
 ```bash
-python -m fits.run analyze --build-type dtk [--device-type <name>] [--archive-dir <path>] [--started-at <iso-datetime>] [--completed-at <iso-datetime>] [--upload | --upload-test]
-python -m fits.run analyze --build-type coverage [--device-type <name>] [--archive-dir <path>] [--started-at <iso-datetime>] [--completed-at <iso-datetime>] [--upload | --upload-test]
+python -m fits.run analyze --build-type dtk [--device-type <name>] [--archive-path <path>] [--started-at <iso-datetime>] [--completed-at <iso-datetime>] [--upload | --upload-test]
+python -m fits.run analyze --build-type coverage [--info-path <lcov.info>] [--device-type <name>] [--archive-path <path>] [--started-at <iso-datetime>] [--completed-at <iso-datetime>] [--upload | --upload-test]
 ```
 
 Options:
@@ -29,9 +29,13 @@ Options:
   normalized to lowercase.
 - `--archive-dir` — optional directory for writing CSV artifacts; defaults to
   `FITS-RESULTS-<exec_id>`.
+- `--archive-path` — alias for `--archive-dir`.
 - `--started-at` / `--completed-at` — optional ISO 8601 timestamps saved to the
   `executions` table as `started_at` and `completed_at`. If omitted, the values
   remain `NULL` in uploads and CSVs.
+- `--info-path` — optional lcov `.info` file for coverage runs. If omitted,
+  the CLI searches the current working directory for exactly one `.info` file,
+  prints which one it is using, and errors if none or multiple are found.
 - `--upload` — upload generated CSV files to MySQL after writing them. Uploads also
   create a single row in the `executions` table with the generated `exec_id`, the
   chosen build type as `build_type`, and the absolute path of the archive directory stored as
@@ -41,8 +45,16 @@ Options:
 - `--upload-test` — same as `--upload` but generates an `exec_id` prefixed with `9999`
   so you can distinguish test uploads from normal runs.
 
-Each run writes its artifacts into a single folder under the working directory named `FITS-RESULTS-<exec_id>` unless overridden by `--archive-dir`. Each mode currently writes a single, easy-to-read CSV defined in `fits/analyzers/*.py` so you can swap in your own logic without hunting through other files. DTK emits many rows with three columns (`exec_id`, `case`, `result`) where `result` is a 10-decimal fractional value; case names are simple "Path_Clip_*" strings to keep the structure obvious.
+Each run writes its artifacts into a single folder under the working directory named `FITS-RESULTS-<exec_id>` unless overridden by `--archive-dir`. Every run produces the shared `executions` CSV plus one analyzer-specific CSV defined in `fits/analyzers/*.py` so you can swap in your own logic without hunting through other files. DTK emits many rows with three columns (`exec_id`, `case`, `result`) where `result` is a 10-decimal fractional value; case names are simple "Path_Clip_*" strings to keep the structure obvious.
 Output filenames follow the pattern `fits.db.<database>.<table>.csv` to match the MySQL table and database names used during upload.
+
+### Coverage workflow
+
+Coverage analysis consumes an lcov `.info` file, derives per-source metrics, and writes `coverage_results`
+with the columns `exec_id`, `directory`, `file_name`, `lines_hit`, `lines_total`, `functions_hit`,
+`functions_total`, `branches_hit`, `branches_total`, `module`, and `owner`. Module/owner values come from
+`FITS/coverage_directory_module_mapping.csv` in the cloned FITS configs (fetched by `git-clone-configs`).
+If the mapping entry is missing for a directory, the module and owner fields remain empty in the CSV.
 
 ### DTK case-to-module mapping
 

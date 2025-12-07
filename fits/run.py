@@ -32,6 +32,12 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         help="Optional archive directory to use instead of the default",
     )
     analyze.add_argument(
+        "--archive-path",
+        dest="archive_dir",
+        type=pathlib.Path,
+        help="Optional archive directory to use instead of the default",
+    )
+    analyze.add_argument(
         "--device-type",
         dest="device_type",
         type=str.lower,
@@ -48,6 +54,12 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         dest="completed_at",
         type=datetime.fromisoformat,
         help="Optional completion time for the execution (ISO 8601)",
+    )
+    analyze.add_argument(
+        "--info-path",
+        dest="info_path",
+        type=pathlib.Path,
+        help="Optional lcov .info file for coverage analysis",
     )
     upload_group = analyze.add_mutually_exclusive_group()
     upload_group.add_argument(
@@ -69,11 +81,13 @@ def build_context(args: argparse.Namespace) -> RunContext:
     db_config = load_db_config()
     exec_id = generate_exec_id(args.build_type, test=args.upload_test)
     archive_dir = args.archive_dir or pathlib.Path(f"FITS-RESULTS-{exec_id}")
+    info_path = args.info_path.resolve() if args.info_path else None
     return RunContext(
         exec_id=exec_id,
         device=detect_device(),
         build_type=args.build_type,
         device_type=args.device_type,
+        info_path=info_path,
         archive_dir=archive_dir.resolve(),
         started_at=args.started_at,
         completed_at=args.completed_at,
@@ -144,10 +158,14 @@ def handle_analyze(args: argparse.Namespace) -> int:
         print(f"Run setup failed: {exc}")
         return 1
 
-    artifacts = [
-        _build_execution_artifact(context),
-        *list(spec.build(context)),
-    ]
+    try:
+        artifacts = [
+            _build_execution_artifact(context),
+            *list(spec.build(context)),
+        ]
+    except (FileNotFoundError, ValueError) as exc:
+        print(f"Run failed: {exc}")
+        return 1
     uploads = _write_artifacts(artifacts, context.archive_dir)
 
     print(
