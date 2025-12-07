@@ -4,7 +4,7 @@ WITH coverage_execs AS (
     SELECT
         exec_id,
         ROW_NUMBER() OVER (ORDER BY exec_id DESC) AS rn
-    FROM executions
+    FROM daily_build.executions
     WHERE build_type = 'coverage'
       AND exec_id < 203000000000000000
 ),
@@ -23,7 +23,7 @@ latest_rows AS (
         cr.lines_total,
         cr.module,
         cr.owner
-    FROM coverage_results cr
+    FROM daily_build.coverage_results cr
     JOIN latest_exec le ON cr.exec_id = le.exec_id
 ),
 previous_rows AS (
@@ -35,7 +35,7 @@ previous_rows AS (
         cr.lines_total,
         cr.module,
         cr.owner
-    FROM coverage_results cr
+    FROM daily_build.coverage_results cr
     JOIN previous_exec pe ON cr.exec_id = pe.exec_id
 )
 SELECT
