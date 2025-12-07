@@ -105,23 +105,19 @@ SELECT
             END AS CHAR CHARACTER SET utf8mb4
         ) COLLATE utf8mb4_unicode_ci
     ) AS latest_status,
-    (
-        CAST(
-            CASE
-                WHEN c.previous_exec_id IS NULL THEN 'error'
-                WHEN c.previous_total > 0 THEN GREATEST(0, 0.8 * c.previous_total - c.previous_hit)
-                ELSE NULL
-            END AS CHAR CHARACTER SET utf8mb4
-        ) COLLATE utf8mb4_unicode_ci
+    CAST(
+        CASE
+            WHEN c.previous_exec_id IS NULL THEN NULL
+            WHEN c.previous_total > 0 THEN GREATEST(0, 0.8 * c.previous_total - c.previous_hit)
+            ELSE NULL
+        END AS DECIMAL(18, 6)
     ) AS previous_gap_to_target,
-    (
-        CAST(
-            CASE
-                WHEN c.latest_exec_id IS NULL THEN 'error'
-                WHEN c.latest_total > 0 THEN GREATEST(0, 0.8 * c.latest_total - c.latest_hit)
-                ELSE NULL
-            END AS CHAR CHARACTER SET utf8mb4
-        ) COLLATE utf8mb4_unicode_ci
+    CAST(
+        CASE
+            WHEN c.latest_exec_id IS NULL THEN NULL
+            WHEN c.latest_total > 0 THEN GREATEST(0, 0.8 * c.latest_total - c.latest_hit)
+            ELSE NULL
+        END AS DECIMAL(18, 6)
     ) AS latest_gap_to_target,
     CASE
         WHEN c.previous_exec_id IS NULL OR c.latest_exec_id IS NULL THEN NULL
