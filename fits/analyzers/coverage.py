@@ -11,7 +11,7 @@ from ..config import RunContext
 
 COVERAGE_RESULTS_TABLE = "coverage_results"
 LCOV_PATH_PREFIX = "foundation/graphic/graphic_2d_ext/ddgr/"
-MODULE_MAPPING_FILE = "coverage_directory_module_mapping.csv"
+MODULE_MAPPING_FILE = "coverage_directory_module_owner_mapping.csv"
 
 
 def _resolve_info_path(context: RunContext) -> pathlib.Path:
