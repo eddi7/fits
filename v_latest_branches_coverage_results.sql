@@ -37,47 +37,85 @@ previous_rows AS (
         cr.owner
     FROM daily_build.coverage_results cr
     JOIN previous_exec pe ON cr.exec_id = pe.exec_id
+),
+combined AS (
+    -- rows present in previous (with optional latest)
+    SELECT
+        pr.exec_id AS previous_exec_id,
+        lr.exec_id AS latest_exec_id,
+        pr.directory,
+        pr.file_name,
+        pr.lines_hit AS previous_hit,
+        lr.lines_hit AS latest_hit,
+        pr.lines_total AS previous_total,
+        lr.lines_total AS latest_total,
+        pr.module,
+        pr.owner
+    FROM previous_rows pr
+    LEFT JOIN latest_rows lr
+      ON pr.directory = lr.directory
+     AND pr.file_name = lr.file_name
+    UNION ALL
+    -- rows present only in latest (no matching previous)
+    SELECT
+        pr.exec_id AS previous_exec_id,
+        lr.exec_id AS latest_exec_id,
+        lr.directory,
+        lr.file_name,
+        pr.lines_hit AS previous_hit,
+        lr.lines_hit AS latest_hit,
+        pr.lines_total AS previous_total,
+        lr.lines_total AS latest_total,
+        lr.module,
+        lr.owner
+    FROM latest_rows lr
+    LEFT JOIN previous_rows pr
+      ON pr.directory = lr.directory
+     AND pr.file_name = lr.file_name
+    WHERE pr.exec_id IS NULL
 )
 SELECT
-    pr.exec_id AS previous_exec_id,
-    lr.exec_id AS latest_exec_id,
-    pr.directory,
-    pr.file_name,
-    pr.lines_hit AS previous_hit,
-    lr.lines_hit AS latest_hit,
-    pr.lines_total AS previous_total,
-    lr.lines_total AS latest_total,
-    CAST(pr.lines_hit AS DECIMAL(18, 6)) / NULLIF(pr.lines_total, 0) AS previous_coverage,
-    CAST(lr.lines_hit AS DECIMAL(18, 6)) / NULLIF(lr.lines_total, 0) AS latest_coverage,
+    c.previous_exec_id,
+    c.latest_exec_id,
+    c.directory,
+    c.file_name,
+    c.previous_hit,
+    c.latest_hit,
+    c.previous_total,
+    c.latest_total,
+    CAST(c.previous_hit AS DECIMAL(18, 6)) / NULLIF(c.previous_total, 0) AS previous_coverage,
+    CAST(c.latest_hit AS DECIMAL(18, 6)) / NULLIF(c.latest_total, 0) AS latest_coverage,
     CASE
-        WHEN pr.lines_total > 0 AND CAST(pr.lines_hit AS DECIMAL(18, 6)) / pr.lines_total >= 0.8 THEN 'pass'
-        WHEN pr.lines_total > 0 THEN 'fail'
+        WHEN c.previous_exec_id IS NULL THEN 'error'
+        WHEN c.previous_total > 0 AND CAST(c.previous_hit AS DECIMAL(18, 6)) / c.previous_total >= 0.8 THEN 'pass'
+        WHEN c.previous_total > 0 THEN 'fail'
         ELSE 'unknown'
     END AS previous_status,
     CASE
-        WHEN lr.lines_total > 0 AND CAST(lr.lines_hit AS DECIMAL(18, 6)) / lr.lines_total >= 0.8 THEN 'pass'
-        WHEN lr.lines_total > 0 THEN 'fail'
+        WHEN c.latest_exec_id IS NULL THEN 'error'
+        WHEN c.latest_total > 0 AND CAST(c.latest_hit AS DECIMAL(18, 6)) / c.latest_total >= 0.8 THEN 'pass'
+        WHEN c.latest_total > 0 THEN 'fail'
         ELSE 'unknown'
     END AS latest_status,
     CASE
-        WHEN pr.lines_total > 0 THEN GREATEST(0, 0.8 * pr.lines_total - pr.lines_hit)
+        WHEN c.previous_exec_id IS NULL THEN 'error'
+        WHEN c.previous_total > 0 THEN GREATEST(0, 0.8 * c.previous_total - c.previous_hit)
         ELSE NULL
     END AS previous_gap_to_target,
     CASE
-        WHEN lr.lines_total > 0 THEN GREATEST(0, 0.8 * lr.lines_total - lr.lines_hit)
+        WHEN c.latest_exec_id IS NULL THEN 'error'
+        WHEN c.latest_total > 0 THEN GREATEST(0, 0.8 * c.latest_total - c.latest_hit)
         ELSE NULL
     END AS latest_gap_to_target,
     CASE
-        WHEN pr.lines_total > 0 AND lr.lines_total > 0 THEN
+        WHEN c.previous_exec_id IS NULL OR c.latest_exec_id IS NULL THEN NULL
+        WHEN c.previous_total > 0 AND c.latest_total > 0 THEN
             (
-                (CAST(pr.lines_hit AS DECIMAL(18, 6)) / pr.lines_total)
-                - (CAST(lr.lines_hit AS DECIMAL(18, 6)) / lr.lines_total)
-            ) * (pr.lines_total + lr.lines_total) / 2
+                (CAST(c.previous_hit AS DECIMAL(18, 6)) / c.previous_total)
+                - (CAST(c.latest_hit AS DECIMAL(18, 6)) / c.latest_total)
+            ) * (c.previous_total + c.latest_total) / 2
         ELSE NULL
     END AS coverage_change,
-    lr.module,
-    lr.owner
-FROM previous_rows pr
-JOIN latest_rows lr
-  ON pr.directory = lr.directory
- AND pr.file_name = lr.file_name;
+    c.module,
+    c.owner
+FROM combined c;
