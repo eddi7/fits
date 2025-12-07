@@ -85,28 +85,44 @@ SELECT
     c.latest_total,
     CAST(c.previous_hit AS DECIMAL(18, 6)) / NULLIF(c.previous_total, 0) AS previous_coverage,
     CAST(c.latest_hit AS DECIMAL(18, 6)) / NULLIF(c.latest_total, 0) AS latest_coverage,
-    CASE
-        WHEN c.previous_exec_id IS NULL THEN 'error'
-        WHEN c.previous_total > 0 AND CAST(c.previous_hit AS DECIMAL(18, 6)) / c.previous_total >= 0.8 THEN 'pass'
-        WHEN c.previous_total > 0 THEN 'fail'
-        ELSE 'unknown'
-    END AS previous_status,
-    CASE
-        WHEN c.latest_exec_id IS NULL THEN 'error'
-        WHEN c.latest_total > 0 AND CAST(c.latest_hit AS DECIMAL(18, 6)) / c.latest_total >= 0.8 THEN 'pass'
-        WHEN c.latest_total > 0 THEN 'fail'
-        ELSE 'unknown'
-    END AS latest_status,
-    CASE
-        WHEN c.previous_exec_id IS NULL THEN 'error'
-        WHEN c.previous_total > 0 THEN GREATEST(0, 0.8 * c.previous_total - c.previous_hit)
-        ELSE NULL
-    END AS previous_gap_to_target,
-    CASE
-        WHEN c.latest_exec_id IS NULL THEN 'error'
-        WHEN c.latest_total > 0 THEN GREATEST(0, 0.8 * c.latest_total - c.latest_hit)
-        ELSE NULL
-    END AS latest_gap_to_target,
+    (
+        CAST(
+            CASE
+                WHEN c.previous_exec_id IS NULL THEN 'error'
+                WHEN c.previous_total > 0 AND CAST(c.previous_hit AS DECIMAL(18, 6)) / c.previous_total >= 0.8 THEN 'pass'
+                WHEN c.previous_total > 0 THEN 'fail'
+                ELSE 'unknown'
+            END AS CHAR CHARACTER SET utf8mb4
+        ) COLLATE utf8mb4_unicode_ci
+    ) AS previous_status,
+    (
+        CAST(
+            CASE
+                WHEN c.latest_exec_id IS NULL THEN 'error'
+                WHEN c.latest_total > 0 AND CAST(c.latest_hit AS DECIMAL(18, 6)) / c.latest_total >= 0.8 THEN 'pass'
+                WHEN c.latest_total > 0 THEN 'fail'
+                ELSE 'unknown'
+            END AS CHAR CHARACTER SET utf8mb4
+        ) COLLATE utf8mb4_unicode_ci
+    ) AS latest_status,
+    (
+        CAST(
+            CASE
+                WHEN c.previous_exec_id IS NULL THEN 'error'
+                WHEN c.previous_total > 0 THEN GREATEST(0, 0.8 * c.previous_total - c.previous_hit)
+                ELSE NULL
+            END AS CHAR CHARACTER SET utf8mb4
+        ) COLLATE utf8mb4_unicode_ci
+    ) AS previous_gap_to_target,
+    (
+        CAST(
+            CASE
+                WHEN c.latest_exec_id IS NULL THEN 'error'
+                WHEN c.latest_total > 0 THEN GREATEST(0, 0.8 * c.latest_total - c.latest_hit)
+                ELSE NULL
+            END AS CHAR CHARACTER SET utf8mb4
+        ) COLLATE utf8mb4_unicode_ci
+    ) AS latest_gap_to_target,
     CASE
         WHEN c.previous_exec_id IS NULL OR c.latest_exec_id IS NULL THEN NULL
         WHEN c.previous_total > 0 AND c.latest_total > 0 THEN
