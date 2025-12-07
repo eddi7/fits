@@ -1,5 +1,5 @@
--- Create a view that compares the two most recent coverage executions (exec_id < 203000000000000000).
-CREATE OR REPLACE VIEW v_latest_branches_coverage_results AS
+CREATE OR REPLACE
+VIEW `daily_build`.`v_latest_branches_coverage_results` AS
 WITH coverage_execs AS (
     SELECT
         exec_id,
