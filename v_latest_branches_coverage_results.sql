@@ -73,24 +73,69 @@ combined AS (
       ON pr.directory = lr.directory
      AND pr.file_name = lr.file_name
     WHERE pr.exec_id IS NULL
+),
+computed AS (
+    SELECT
+        c.*,
+        CAST(
+            CASE
+                WHEN c.previous_total IS NULL OR c.previous_total = 0 THEN NULL
+                ELSE CAST(c.previous_hit AS DECIMAL(38, 10)) / c.previous_total
+            END AS DECIMAL(11, 10)
+        ) AS previous_coverage,
+        CAST(
+            CASE
+                WHEN c.latest_total IS NULL OR c.latest_total = 0 THEN NULL
+                ELSE CAST(c.latest_hit AS DECIMAL(38, 10)) / c.latest_total
+            END AS DECIMAL(11, 10)
+        ) AS latest_coverage,
+        CAST(
+            CASE
+                WHEN SUM(c.previous_total) OVER () = 0 OR c.previous_hit IS NULL THEN NULL
+                ELSE CAST(c.previous_hit AS DECIMAL(38, 10)) / SUM(c.previous_total) OVER ()
+            END AS DECIMAL(11, 10)
+        ) AS previous_weight,
+        CAST(
+            CASE
+                WHEN SUM(c.latest_total) OVER () = 0 OR c.latest_hit IS NULL THEN NULL
+                ELSE CAST(c.latest_hit AS DECIMAL(38, 10)) / SUM(c.latest_total) OVER ()
+            END AS DECIMAL(11, 10)
+        ) AS latest_weight,
+        CAST(
+            CASE
+                WHEN COALESCE(c.latest_total, 0) + COALESCE(c.previous_total, 0) = 0 THEN NULL
+                ELSE CAST(COALESCE(c.latest_hit, 0) + COALESCE(c.previous_hit, 0) AS DECIMAL(38, 10))
+                     / NULLIF(COALESCE(c.latest_total, 0) + COALESCE(c.previous_total, 0), 0)
+            END AS DECIMAL(11, 10)
+        ) AS combined_weight
+    FROM combined c
 )
 SELECT
-    c.previous_exec_id,
-    c.latest_exec_id,
-    c.directory,
-    c.file_name,
-    c.previous_hit,
-    c.latest_hit,
-    c.previous_total,
-    c.latest_total,
-    CAST(c.previous_hit AS DECIMAL(18, 6)) / NULLIF(c.previous_total, 0) AS previous_coverage,
-    CAST(c.latest_hit AS DECIMAL(18, 6)) / NULLIF(c.latest_total, 0) AS latest_coverage,
+    d.previous_exec_id,
+    d.latest_exec_id,
+    d.directory,
+    d.file_name,
+    d.previous_hit,
+    d.latest_hit,
+    d.previous_total,
+    d.latest_total,
+    d.previous_coverage,
+    d.latest_coverage,
+    d.previous_weight,
+    d.latest_weight,
+    d.combined_weight,
     (
         CAST(
             CASE
-                WHEN c.previous_exec_id IS NULL THEN 'error'
-                WHEN c.previous_total > 0 AND CAST(c.previous_hit AS DECIMAL(18, 6)) / c.previous_total >= 0.8 THEN 'pass'
-                WHEN c.previous_total > 0 THEN 'fail'
+                WHEN d.previous_exec_id IS NULL
+                     OR d.latest_exec_id IS NULL
+                     OR d.directory IS NULL OR d.directory = ''
+                     OR d.file_name IS NULL OR d.file_name = ''
+                     OR (d.previous_total IS NOT NULL AND d.previous_hit IS NOT NULL AND d.previous_total < d.previous_hit)
+                     OR (d.latest_total IS NOT NULL AND d.latest_hit IS NOT NULL AND d.latest_total < d.latest_hit)
+                    THEN 'error'
+                WHEN d.previous_total > 0 AND d.previous_coverage >= 0.8 THEN 'pass'
+                WHEN d.previous_total > 0 THEN 'fail'
                 ELSE 'unknown'
             END AS CHAR CHARACTER SET utf8mb4
         ) COLLATE utf8mb4_unicode_ci
@@ -98,36 +143,25 @@ SELECT
     (
         CAST(
             CASE
-                WHEN c.latest_exec_id IS NULL THEN 'error'
-                WHEN c.latest_total > 0 AND CAST(c.latest_hit AS DECIMAL(18, 6)) / c.latest_total >= 0.8 THEN 'pass'
-                WHEN c.latest_total > 0 THEN 'fail'
+                WHEN d.previous_exec_id IS NULL
+                     OR d.latest_exec_id IS NULL
+                     OR d.directory IS NULL OR d.directory = ''
+                     OR d.file_name IS NULL OR d.file_name = ''
+                     OR (d.previous_total IS NOT NULL AND d.previous_hit IS NOT NULL AND d.previous_total < d.previous_hit)
+                     OR (d.latest_total IS NOT NULL AND d.latest_hit IS NOT NULL AND d.latest_total < d.latest_hit)
+                    THEN 'error'
+                WHEN d.latest_total > 0 AND d.latest_coverage >= 0.8 THEN 'pass'
+                WHEN d.latest_total > 0 THEN 'fail'
                 ELSE 'unknown'
             END AS CHAR CHARACTER SET utf8mb4
         ) COLLATE utf8mb4_unicode_ci
     ) AS latest_status,
     CAST(
         CASE
-            WHEN c.previous_exec_id IS NULL THEN NULL
-            WHEN c.previous_total > 0 THEN GREATEST(0, 0.8 * c.previous_total - c.previous_hit)
-            ELSE NULL
-        END AS DECIMAL(18, 6)
-    ) AS previous_gap_to_target,
-    CAST(
-        CASE
-            WHEN c.latest_exec_id IS NULL THEN NULL
-            WHEN c.latest_total > 0 THEN GREATEST(0, 0.8 * c.latest_total - c.latest_hit)
-            ELSE NULL
-        END AS DECIMAL(18, 6)
-    ) AS latest_gap_to_target,
-    CASE
-        WHEN c.previous_exec_id IS NULL OR c.latest_exec_id IS NULL THEN NULL
-        WHEN c.previous_total > 0 AND c.latest_total > 0 THEN
-            (
-                (CAST(c.previous_hit AS DECIMAL(18, 6)) / c.previous_total)
-                - (CAST(c.latest_hit AS DECIMAL(18, 6)) / c.latest_total)
-            ) * (c.previous_total + c.latest_total) / 2
-        ELSE NULL
-    END AS coverage_change,
-    c.module,
-    c.owner
-FROM combined c;
+            WHEN d.previous_coverage IS NULL OR d.latest_coverage IS NULL THEN NULL
+            ELSE d.latest_coverage - d.previous_coverage
+        END AS DECIMAL(11, 10)
+    ) AS diff_coverage,
+    d.module,
+    d.owner
+FROM computed d;
