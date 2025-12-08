@@ -19,8 +19,8 @@ latest_rows AS (
         le.exec_id AS exec_id,
         cr.directory,
         cr.file_name,
-        cr.lines_hit,
-        cr.lines_total,
+        cr.branches_hit,
+        cr.branches_total,
         cr.module,
         cr.owner
     FROM daily_build.coverage_results cr
@@ -31,8 +31,8 @@ previous_rows AS (
         pe.exec_id AS exec_id,
         cr.directory,
         cr.file_name,
-        cr.lines_hit,
-        cr.lines_total,
+        cr.branches_hit,
+        cr.branches_total,
         cr.module,
         cr.owner
     FROM daily_build.coverage_results cr
@@ -45,10 +45,10 @@ combined AS (
         lr.exec_id AS latest_exec_id,
         pr.directory,
         pr.file_name,
-        pr.lines_hit AS previous_hit,
-        lr.lines_hit AS latest_hit,
-        pr.lines_total AS previous_total,
-        lr.lines_total AS latest_total,
+        pr.branches_hit AS previous_hit,
+        lr.branches_hit AS latest_hit,
+        pr.branches_total AS previous_total,
+        lr.branches_total AS latest_total,
         pr.module,
         pr.owner
     FROM previous_rows pr
@@ -62,10 +62,10 @@ combined AS (
         lr.exec_id AS latest_exec_id,
         lr.directory,
         lr.file_name,
-        pr.lines_hit AS previous_hit,
-        lr.lines_hit AS latest_hit,
-        pr.lines_total AS previous_total,
-        lr.lines_total AS latest_total,
+        pr.branches_hit AS previous_hit,
+        lr.branches_hit AS latest_hit,
+        pr.branches_total AS previous_total,
+        lr.branches_total AS latest_total,
         lr.module,
         lr.owner
     FROM latest_rows lr
