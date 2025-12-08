@@ -103,9 +103,12 @@ computed AS (
         ) AS latest_weight,
         CAST(
             CASE
-                WHEN COALESCE(c.latest_total, 0) + COALESCE(c.previous_total, 0) = 0 THEN NULL
-                ELSE CAST(COALESCE(c.latest_hit, 0) + COALESCE(c.previous_hit, 0) AS DECIMAL(38, 10))
-                     / NULLIF(COALESCE(c.latest_total, 0) + COALESCE(c.previous_total, 0), 0)
+                WHEN SUM(COALESCE(c.latest_total, 0) + COALESCE(c.previous_total, 0)) OVER () = 0
+                     OR (c.latest_total IS NULL AND c.previous_total IS NULL) THEN NULL
+                ELSE CAST(
+                    COALESCE(c.latest_total, 0) + COALESCE(c.previous_total, 0)
+                    AS DECIMAL(38, 10)
+                ) / SUM(COALESCE(c.latest_total, 0) + COALESCE(c.previous_total, 0)) OVER ()
             END AS DECIMAL(11, 10)
         ) AS combined_weight
     FROM combined c
