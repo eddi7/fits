@@ -97,8 +97,8 @@ computed AS (
         ) AS previous_weight,
         CAST(
             CASE
-                WHEN SUM(c.latest_total) OVER () = 0 OR c.latest_hit IS NULL THEN NULL
-                ELSE CAST(c.latest_hit AS DECIMAL(38, 10)) / SUM(c.latest_total) OVER ()
+                WHEN SUM(c.latest_total) OVER () = 0 OR c.latest_total IS NULL THEN NULL
+                ELSE CAST(c.latest_total AS DECIMAL(38, 10)) / SUM(c.latest_total) OVER ()
             END AS DECIMAL(11, 10)
         ) AS latest_weight,
         CAST(
