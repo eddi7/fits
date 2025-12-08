@@ -6,7 +6,7 @@ WITH totals AS (
         SUM(latest_total) AS latest_total,
         SUM(previous_hit) AS previous_hit,
         SUM(previous_total) AS previous_total
-    FROM v_latest_branches_coverage_results
+    FROM daily_build.v_latest_branches_coverage_results
 )
 SELECT
     CAST(
@@ -15,4 +15,5 @@ SELECT
             ELSE (CAST(latest_hit AS DECIMAL(38, 10)) / latest_total)
                  - (CAST(previous_hit AS DECIMAL(38, 10)) / previous_total)
         END AS DECIMAL(11, 10)
-    ) AS coverage_change;
+    ) AS coverage_change
+FROM totals;
