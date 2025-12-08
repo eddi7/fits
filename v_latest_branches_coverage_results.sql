@@ -127,15 +127,15 @@ SELECT
     CAST(
         CASE
             WHEN d.previous_total IS NULL OR d.previous_hit IS NULL THEN NULL
-            ELSE GREATEST(0, 0.8 * d.previous_total - d.previous_hit)
-        END AS DECIMAL(18, 6)
-    ) AS previous_gap_hit_to_80,
+            ELSE GREATEST(0, d.previous_total - d.previous_hit)
+        END AS UNSIGNED
+    ) AS previous_miss,
     CAST(
         CASE
             WHEN d.latest_total IS NULL OR d.latest_hit IS NULL THEN NULL
-            ELSE GREATEST(0, 0.8 * d.latest_total - d.latest_hit)
-        END AS DECIMAL(18, 6)
-    ) AS latest_gap_hit_to_80,
+            ELSE GREATEST(0, d.latest_total - d.latest_hit)
+        END AS UNSIGNED
+    ) AS latest_miss,
     d.previous_weight,
     d.latest_weight,
     d.combined_weight,
