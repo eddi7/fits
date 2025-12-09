@@ -53,8 +53,10 @@ Output filenames follow the pattern `fits.db.<database>.<table>.csv` to match th
 Coverage analysis consumes an lcov `.info` file, derives per-source metrics, and writes `coverage_results`
 with the columns `exec_id`, `directory`, `file_name`, `lines_hit`, `lines_total`, `functions_hit`,
 `functions_total`, `branches_hit`, `branches_total`, `module`, and `owner`. Module/owner values come from
-`FITS/coverage_directory_module_owner_mapping.csv` in the cloned FITS configs (fetched by `git-clone-configs`).
-If the mapping entry is missing for a directory, the module and owner fields remain empty in the CSV.
+`FITS/coverage_mapping.csv` in the cloned FITS configs (fetched by `git-clone-configs`).
+If the mapping entry is missing for a directory, the module and owner fields remain empty in the CSV. An optional
+`FITS/coverage_mapping_overrides.csv` can override module/owner for specific `directory` + `file_name` pairs; when
+present, override rows replace the directory-level mapping result.
 
 ### DTK case-to-module mapping
 

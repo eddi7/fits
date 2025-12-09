@@ -11,7 +11,8 @@ from ..config import RunContext
 
 COVERAGE_RESULTS_TABLE = "coverage_results"
 LCOV_PATH_PREFIX = "foundation/graphic/graphic_2d_ext/ddgr/"
-MODULE_MAPPING_FILE = "coverage_directory_module_owner_mapping.csv"
+COVERAGE_MAPPING_FILE = "coverage_mapping.csv"
+COVERAGE_MAPPING_OVERRIDES_FILE = "coverage_mapping_overrides.csv"
 
 
 def _resolve_info_path(context: RunContext) -> pathlib.Path:
@@ -195,7 +196,7 @@ def _parse_lcov(info_path: pathlib.Path) -> list[dict[str, int | str]]:
 def _load_module_mapping(config_dir: pathlib.Path) -> list[tuple[str, str, str | None]]:
     """Load directory-to-module/owner mapping from the FITS config repo."""
 
-    mapping_path = config_dir / MODULE_MAPPING_FILE
+    mapping_path = config_dir / COVERAGE_MAPPING_FILE
     if not mapping_path.exists():
         raise FileNotFoundError(
             f"Coverage module mapping not found at {mapping_path}. Ensure git-clone-configs fetched FITS data."
@@ -206,7 +207,7 @@ def _load_module_mapping(config_dir: pathlib.Path) -> list[tuple[str, str, str |
         required = {"directory", "module", "owner"}
         if not reader.fieldnames or required - set(reader.fieldnames):
             raise ValueError(
-                f"{MODULE_MAPPING_FILE} must contain directory, module, and owner columns"
+                f"{COVERAGE_MAPPING_FILE} must contain directory, module, and owner columns"
             )
 
         mapping: list[tuple[str, str, str | None]] = []
@@ -219,6 +220,36 @@ def _load_module_mapping(config_dir: pathlib.Path) -> list[tuple[str, str, str |
             mapping.append((directory.replace("\\", "/"), module, owner))
 
     return mapping
+
+
+def _load_override_mapping(
+    config_dir: pathlib.Path,
+) -> list[tuple[str, str, str, str | None]]:
+    """Load directory+file-level overrides for module and owner."""
+
+    mapping_path = config_dir / COVERAGE_MAPPING_OVERRIDES_FILE
+    if not mapping_path.exists():
+        return []
+
+    with mapping_path.open(newline="", encoding="utf-8-sig") as mapping_file:
+        reader = csv.DictReader(mapping_file)
+        required = {"directory", "file_name", "module", "owner"}
+        if not reader.fieldnames or required - set(reader.fieldnames):
+            raise ValueError(
+                f"{COVERAGE_MAPPING_OVERRIDES_FILE} must contain directory, file_name, module, and owner columns"
+            )
+
+        overrides: list[tuple[str, str, str, str | None]] = []
+        for row in reader:
+            directory = (row.get("directory") or "").strip().strip("/")
+            file_name = (row.get("file_name") or "").strip()
+            module = (row.get("module") or "").strip()
+            owner = (row.get("owner") or "").strip() or None
+            if not directory or not file_name or not module:
+                continue
+            overrides.append((directory.replace("\\", "/"), file_name, module, owner))
+
+    return overrides
 
 
 def _module_owner_for_directory(
@@ -241,16 +272,40 @@ def _module_owner_for_directory(
     return None, None
 
 
+def _override_for_file(
+    directory: str, file_name: str, overrides: list[tuple[str, str, str, str | None]]
+) -> tuple[str | None, str | None]:
+    """Return override module/owner if a directory+file_name mapping exists."""
+
+    normalized_dir = directory.strip("/").replace("\\", "/")
+    normalized_file = file_name or ""
+
+    for mapped_dir, mapped_file, module, owner in overrides:
+        if normalized_dir == mapped_dir.strip("/") and normalized_file == mapped_file:
+            return module, owner
+
+    return None, None
+
+
 def _build_rows(context: RunContext) -> Iterator[dict[str, str | int | None]]:
     """Yield coverage rows enriched with module and owner metadata."""
 
     info_path = _resolve_info_path(context)
     config_dir = pathlib.Path.cwd() / "FITS"
     mapping = _load_module_mapping(config_dir)
+    overrides = _load_override_mapping(config_dir)
     parsed = _parse_lcov(info_path)
 
     for record in parsed:
         module, owner = _module_owner_for_directory(str(record["directory"]), mapping)
+        override_module, override_owner = _override_for_file(
+            str(record["directory"]),
+            str(record["file_name"]),
+            overrides,
+        )
+        if override_module is not None:
+            module = override_module
+            owner = override_owner
         yield {
             "exec_id": context.exec_id,
             "directory": record["directory"],
